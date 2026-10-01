@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16.2-alpine
+    container_name: spry-postgres
+    environment:
+      POSTGRES_USER: spry
+      POSTGRES_PASSWORD: spry_pass
+      POSTGRES_DB: spry_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spry -d spry_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: spry-backend
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://spry:spry_pass@postgres:5432/spry_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: spry-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
