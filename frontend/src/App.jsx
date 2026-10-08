@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Plus, Clock } from 'lucide-react';
+import AuthBar from "./AuthBar";
+import LoginPage from "./LoginPage";
 
 export default function App() {
   const [meetings, setMeetings] = useState([]);
@@ -9,6 +11,10 @@ export default function App() {
     ends_at: '',
     attendee_count: 1,
   });
+
+  if (window.location.pathname.startsWith("/login")) {
+    return <LoginPage />;
+  }
 
   const fetchMeetings = async () => {
     try {
@@ -53,6 +59,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen p-8 max-w-5xl mx-auto space-y-8">
+      <AuthBar />
       <header className="border-b pb-4">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800">Spry Meetings</h1>
         <p className="text-slate-500 text-sm mt-1">Manage and schedule team sessions</p>

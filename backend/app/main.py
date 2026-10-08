@@ -7,6 +7,14 @@ from app import crud, schemas
 
 app = FastAPI(title="Spry API")
 
+
+origins = [
+    "https://d1pk13cbcfrq49.cloudfront.net/",  # Вкажіть ваш CloudFront домен
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,3 +30,8 @@ def read_meetings(db: Session = Depends(get_db)):
 @app.post("/api/meetings", response_model=schemas.MeetingResponse, status_code=status.HTTP_201_CREATED)
 def create_meeting(meeting: schemas.MeetingCreate, db: Session = Depends(get_db)):
     return crud.create_meeting(db=db, meeting=meeting)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)

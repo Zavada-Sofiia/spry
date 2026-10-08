@@ -1,0 +1,8 @@
+.env
+.env.production
+frontend/.env.production
+.DS_Store
+frontend/dist
+node_modules
+frontend/node_modules
+test_index.html
