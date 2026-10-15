@@ -6,3 +6,5 @@ frontend/dist
 node_modules
 frontend/node_modules
 test_index.html
+__pycache__/
+*.pyc

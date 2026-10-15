@@ -8,7 +8,10 @@ ECS_CLUSTER = spry-cluster
 ECS_SERVICE = spry-backend-service
 COMMIT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
 
-.PHONY: deploy-frontend deploy-backend auth-env
+PROJECT_NAME ?= spry
+REPORTS_STACK ?= $(PROJECT_NAME)-reports
+
+.PHONY: deploy-frontend deploy-backend auth-env report-now
 
 deploy-frontend: auth-env
 	@echo "==> Building frontend bundle..."
@@ -33,3 +36,12 @@ auth-env:
 	CLIENT=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='ClientId'].OutputValue" --output text); \
 	DOMAIN=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" --output text); \
 	printf "VITE_COGNITO_AUTHORITY=https://cognito-idp.eu-north-1.amazonaws.com/$$POOL\nVITE_COGNITO_CLIENT_ID=$$CLIENT\nVITE_COGNITO_DOMAIN=$$DOMAIN\n" > frontend/.env.production
+
+report-now:
+	@test -n "$(WEEK)" || (echo "usage: make report-now WEEK=2026-W39" && exit 1)
+	aws sqs send-message \
+	  --region $(AWS_REGION) \
+	  --queue-url $$(aws cloudformation describe-stacks --region $(AWS_REGION) --stack-name $(REPORTS_STACK) \
+	      --query "Stacks[0].Outputs[?OutputKey=='ReportRequestsQueueUrl'].OutputValue" --output text) \
+	  --message-body '{"week":"$(WEEK)","source":"manual"}'
+
