@@ -8,7 +8,7 @@ from alembic import context
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.database import Base
-from app.models import Meeting
+from app.models import Meeting, Agenda
 
 config = context.config
 
@@ -33,11 +33,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    from app.database import engine as connectable
 
     with connectable.connect() as connection:
         context.configure(

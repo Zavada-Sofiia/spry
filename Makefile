@@ -11,7 +11,7 @@ COMMIT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
 PROJECT_NAME ?= spry
 REPORTS_STACK ?= $(PROJECT_NAME)-reports
 
-.PHONY: deploy-frontend deploy-backend auth-env report-now
+.PHONY: deploy-frontend deploy-backend auth-env report-now llm-hello parse deploy-ai
 
 deploy-frontend: auth-env
 	@echo "==> Building frontend bundle..."
@@ -25,17 +25,19 @@ deploy-backend:
 	@echo "==> Logging in to Amazon ECR..."
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
 	@echo "==> Building Docker image..."
-	docker build -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(COMMIT_SHA) ./backend
+	docker build --platform linux/amd64 -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(COMMIT_SHA) -t $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest ./backend
 	@echo "==> Pushing image to ECR..."
 	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):$(COMMIT_SHA)
+	docker push $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest
 	@echo "==> Updating ECS Service..."
-	aws ecs update-service --cluster $(ECS_CLUSTER) --service $(ECS_SERVICE) --force-new-deployment
+	aws ecs update-service --region $(AWS_REGION) --cluster $(ECS_CLUSTER) --service $(ECS_SERVICE) --force-new-deployment
 
 auth-env:
 	@POOL=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text); \
 	CLIENT=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='ClientId'].OutputValue" --output text); \
 	DOMAIN=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" --output text); \
-	printf "VITE_COGNITO_AUTHORITY=https://cognito-idp.eu-north-1.amazonaws.com/$$POOL\nVITE_COGNITO_CLIENT_ID=$$CLIENT\nVITE_COGNITO_DOMAIN=$$DOMAIN\n" > frontend/.env.production
+	PARSER=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name $(PROJECT_NAME)-ai --query "Stacks[0].Outputs[?OutputKey=='ParserFunctionUrl'].OutputValue" --output text 2>/dev/null || echo ""); \
+	printf "VITE_COGNITO_AUTHORITY=https://cognito-idp.eu-north-1.amazonaws.com/$$POOL\nVITE_COGNITO_CLIENT_ID=$$CLIENT\nVITE_COGNITO_DOMAIN=$$DOMAIN\nVITE_PARSER_FUNCTION_URL=$$PARSER\n" > frontend/.env.production
 
 report-now:
 	@test -n "$(WEEK)" || (echo "usage: make report-now WEEK=2026-W39" && exit 1)
@@ -44,4 +46,48 @@ report-now:
 	  --queue-url $$(aws cloudformation describe-stacks --region $(AWS_REGION) --stack-name $(REPORTS_STACK) \
 	      --query "Stacks[0].Outputs[?OutputKey=='ReportRequestsQueueUrl'].OutputValue" --output text) \
 	  --message-body '{"week":"$(WEEK)","source":"manual"}'
+
+llm-hello:
+	PYTHONPATH=backend python3 -c '\
+from app.config import settings; \
+from anthropic import AnthropicBedrockMantle; \
+client = AnthropicBedrockMantle(aws_region="us-east-1"); \
+msg = client.messages.create( \
+    model=settings.PARSER_MODEL, \
+    max_tokens=1024, \
+    output_config={"effort": "low"}, \
+    messages=[{"role": "user", "content": "In one sentence: what is an ISO week?"}], \
+); \
+print(next(b.text for b in msg.content if b.type == "text")); \
+print(msg.stop_reason, msg.usage.input_tokens, msg.usage.output_tokens); \
+'
+
+parse:
+	@test -n "$(TEXT)" || (echo "usage: make parse TEXT=\"...\"" && exit 1)
+	PYTHONPATH=backend python3 -c '\
+import json, sys; \
+from datetime import date; \
+from app.ai.agenda import parse_agenda, cost_usd; \
+from app.config import settings; \
+agenda, usage = parse_agenda(sys.argv[1], date.today(), "Europe/Kyiv"); \
+print(agenda.model_dump_json(indent=2)); \
+print(f"usage: {usage}, cost: $${cost_usd(settings.PARSER_MODEL, usage):.6f}"); \
+' "$(TEXT)"
+
+MOCK_AI ?= false
+
+deploy-ai:
+	@echo "==> Deploying Spry AI Stack..."
+	aws cloudformation deploy \
+	  --region $(AWS_REGION) \
+	  --stack-name $(PROJECT_NAME)-ai \
+	  --template-file infra/ai.yml \
+	  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+	  --parameter-overrides \
+	      ProjectName=$(PROJECT_NAME) \
+	      ParserImageUri=$(ECR_REGISTRY)/$(ECR_REPOSITORY):$(COMMIT_SHA) \
+	      MockAi=$(MOCK_AI)
+
+
+
 

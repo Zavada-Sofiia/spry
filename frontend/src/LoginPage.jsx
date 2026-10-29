@@ -13,7 +13,7 @@ export default function LoginPage() {
     } else {
       auth.signinRedirect();
     }
-  }, [auth.isLoading, auth.isAuthenticated]);
+  }, [auth.isLoading, auth.isAuthenticated, auth]);
 
   return <p>Redirecting to sign-in…</p>;
 }

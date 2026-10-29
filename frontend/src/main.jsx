@@ -1,8 +1,7 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { AuthProvider } from "react-oidc-context";
 import App from "./App";
-import "./index.css"; // залиш, якщо в тебе вже був такий імпорт
+import "./index.css";
 
 const oidcConfig = {
   authority: import.meta.env.VITE_COGNITO_AUTHORITY,

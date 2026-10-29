@@ -8,3 +8,5 @@ frontend/node_modules
 test_index.html
 __pycache__/
 *.pyc
+frontend/.github/
+answers.md
