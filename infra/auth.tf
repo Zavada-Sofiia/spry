@@ -38,6 +38,10 @@ resource "aws_cognito_identity_provider" "google" {
     email          = "email"
     email_verified = "email_verified"
   }
+
+  lifecycle {
+    ignore_changes = [provider_details, attribute_mapping]
+  }
 }
 
 # ---------- App Client ----------
