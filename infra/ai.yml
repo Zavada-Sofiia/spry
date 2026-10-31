@@ -34,6 +34,8 @@ Resources:
   # ---------- IAM Role ----------
   ParserRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Sub ${ProjectName}-agenda-parser-role
       AssumeRolePolicyDocument:
@@ -62,6 +64,8 @@ Resources:
   # ---------- Lambda Function (No VpcConfig) ----------
   ParserFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${ProjectName}-agenda-parser
       PackageType: Image
@@ -86,6 +90,8 @@ Resources:
   # ---------- Function URL (Public with auth checked inside function) ----------
   ParserFunctionUrl:
     Type: AWS::Lambda::Url
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TargetFunctionArn: !GetAtt ParserFunction.Arn
       AuthType: NONE
@@ -103,6 +109,8 @@ Resources:
 
   ParserFunctionUrlPermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref ParserFunction
       Action: lambda:InvokeFunctionUrl
@@ -111,6 +119,8 @@ Resources:
 
   ParserFunctionInvokePermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref ParserFunction
       Action: lambda:InvokeFunction
