@@ -28,15 +28,15 @@ Infrastructure for Spry's supplementary services (Cognito Authentication, S3/SQS
    - Once approved, the branch is merged into `main`.
 3. **Remote Apply in HCP Terraform**:
    - The merge to `main` triggers a live deployment in HCP Terraform.
-   - HCP Terraform securely assumes the AWS IAM role `arn:aws:iam::545769669518:role/spry-tfc-role` using dynamic OIDC credentials (no static AWS keys).
-   - The plan is reviewed and confirmed in the HCP Terraform console (or auto-applied based on workspace configuration).
+   - HCP Terraform executes the plan using credentials configured in the workspace (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for the dedicated `spry-dev` project user, as OIDC provider creation is restricted by organization SCP).
+   - The plan is reviewed and confirmed in the HCP Terraform console.
    - **Local workstations never run `terraform apply`.**
 
 ### Secret Handling
 
-- **Zero Secrets in Code**: Secrets are never committed to the repository, `terraform.tfvars`, or documentation.
+- **Zero Secrets in Code**: Secrets and cloud credentials are never committed to the repository, `terraform.tfvars`, or documentation.
 - **Sensitive Variables**: Secrets (such as `google_client_secret` and `database_url`) are defined in `infra/variables.tf` as `sensitive = true` without defaults.
-- **HCP Terraform Storage**: Secrets are populated exclusively within HCP Terraform workspace variables marked as **Sensitive**. While Terraform state (`.tfstate`) records the resolved values, the state file resides securely in HCP Terraform's encrypted backend (AES-256) and is never checked into source control or stored unencrypted on developer laptops.
+- **HCP Terraform Storage**: Secrets and AWS execution credentials are populated exclusively within HCP Terraform workspace variables marked as **Sensitive**. While Terraform state (`.tfstate`) records the resolved values for managed resources, the state file resides securely in HCP Terraform's encrypted backend (AES-256) and is never checked into source control or stored unencrypted on developer laptops.
 
 ---
 

@@ -16,8 +16,8 @@ We require a modern Infrastructure as Code (IaC) workflow that allows safe, prev
 ## Decision
 We adopt **Terraform** (>= 1.10) managed via **HCP Terraform** (Terraform Cloud) for `infra/`:
 1. **Remote Execution & State**: HCP Terraform organization `SprySZ`, workspace `spry-dev` with Remote execution mode and `infra` as the working directory.
-2. **Zero Hardcoded Credentials (OIDC)**: HCP Terraform authenticates to AWS via OpenID Connect (OIDC) assuming the dedicated role `arn:aws:iam::545769669518:role/spry-tfc-role`.
-3. **Existing Resources Adopted**: All existing AWS resources from the three CloudFormation stacks are retained (`DeletionPolicy: Retain`) and cleanly adopted into Terraform state using declarative `import` blocks.
+2. **AWS Authentication & SCP Fallback**: The original architectural target was dynamic OIDC credentials (`app.terraform.io` audience `aws.workload.identity`). However, the AWS Organization enforces a Service Control Policy (SCP `p-bpbjw0fa`) that explicitly denies `iam:CreateOpenIDConnectProvider` for student IAM accounts. Consequently, runner authentication in HCP Terraform utilizes dedicated IAM user credentials for `spry-dev` stored as **Sensitive** environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`).
+3. **Existing Resources Adopted**: All existing AWS resources from the three CloudFormation stacks were retained (`DeletionPolicy: Retain`) and cleanly adopted into Terraform state using declarative `import` blocks.
 4. **Core Stacks Remain CloudFormation**: Baseline course infrastructure (network, VPC, database, ECS cluster) remains managed by CloudFormation; Terraform reads any necessary attributes via variables or data sources.
 
 ---
@@ -25,20 +25,21 @@ We adopt **Terraform** (>= 1.10) managed via **HCP Terraform** (Terraform Cloud)
 ### 1. Why Terraform (and not CloudFormation, CDK, or OpenTofu)?
 - **Over CloudFormation**: Terraform AWS Provider (v6.x) cleanly decomposes monolithic resources (such as decomposing an S3 bucket into `aws_s3_bucket`, `aws_s3_bucket_lifecycle_configuration`, `aws_s3_bucket_public_access_block`, and `aws_s3_bucket_notification`), eliminating the circular dependency that plagued Lab 5. Furthermore, declarative `import` blocks enable safe resource adoption without stack recreation.
 - **Over AWS CDK**: CDK introduces an extra layer of code synthesis (TypeScript/Python compiling down to CloudFormation), inheriting all underlying CloudFormation limitations, slow rollback failures, and deployment opacity. Terraform provides a single declarative abstraction with direct API mappings.
-- **Over OpenTofu**: While OpenTofu is open-source, HCP Terraform provides a fully managed remote state backend, turnkey speculative pull request plans, and managed OIDC credentials out of the box without requiring the team to self-host and maintain an S3 state bucket, DynamoDB lock table, and custom CI/CD runner runners.
+- **Over OpenTofu**: While OpenTofu is open-source, HCP Terraform provides a fully managed remote state backend, turnkey speculative pull request plans, and managed workspace variables out of the box without requiring the team to self-host and maintain an S3 state bucket, DynamoDB lock table, and custom CI/CD runners.
 
 ### 2. Who changes infrastructure now, and how?
 - **Workflow**:
   1. An engineer makes infrastructure changes on a feature branch in `infra/*.tf`.
-  2. Opening a GitHub Pull Request triggers an automated **speculative plan** in HCP Terraform.
+  2. Opening a GitHub Pull Request triggers an automated **speculative plan** in HCP Terraform via GitHub VCS integration.
   3. Engineers review the exact resource diff in the PR discussion. Local plans can be run via `make infra-plan`.
   4. Merging the PR into `main` triggers a live run in the `spry-dev` workspace on HCP Terraform.
   5. The change is reviewed and applied in HCP Terraform (or auto-applied based on workspace configuration).
 - **Access Control**: Engineers do not run `terraform apply` locally. Direct workstation access to AWS is limited to read-only queries and testing. Infrastructure modifications are strictly mediated by git review and HCP Terraform.
 
 ### 3. Where do secrets end up, state included?
-- **Sensitive Variables**: Secrets (`google_client_secret`, `database_url`) are defined in `variables.tf` with `sensitive = true` and no default values. They are populated exclusively inside HCP Terraform workspace variables marked as **Sensitive**.
-- **State File Reality**: Marking a variable `sensitive = true` prevents the secret from appearing in console logs, plan outputs, and PR comments. **However, Terraform state (`.tfstate`) always stores raw attribute values in plaintext JSON.**
+- **Application & Database Secrets**: Secrets (`google_client_secret`, `database_url`) are defined in `variables.tf` with `sensitive = true` and no default values. They are populated exclusively inside HCP Terraform workspace variables marked as **Sensitive**.
+- **AWS Runner Credentials**: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` reside in HCP Terraform workspace environment variables marked as **Sensitive**. They are consumed in-memory by the Linux execution runner and are **not** written to the state file.
+- **State File Reality**: Marking a Terraform variable `sensitive = true` prevents the secret from appearing in console logs, plan outputs, and PR comments. **However, Terraform state (`.tfstate`) always stores raw attribute values in plaintext JSON.** Consequently, `google_client_secret` and `database_url` are present in plaintext inside the `.tfstate` stored in HCP Terraform.
 - **Protection**: State files are never stored locally and are excluded from git via `.gitignore`. The state is stored in HCP Terraform, encrypted at rest (AES-256 with HashiCorp Vault-managed keys) and in transit (TLS 1.3). Workspace access is restricted to authenticated team members.
 
 ### 4. What happens if HCP Terraform is down?
@@ -56,8 +57,8 @@ We adopt **Terraform** (>= 1.10) managed via **HCP Terraform** (Terraform Cloud)
 - **Positive**:
   - Fine-grained control over AWS resources without CloudFormation circular dependency traps.
   - Transparent plan reviews directly in pull requests before anything changes in AWS.
-  - No long-lived AWS IAM access keys stored in CI or developer machines (OIDC provider).
+  - Centralized state locking and history in HCP Terraform.
 - **Negative / Operational Considerations**:
-  - Requires maintaining the HCP Terraform workspace and OIDC trust policy.
-  - State file inspection requires HCP Terraform permissions.
-- **TODO(me)**: Confirm whether auto-apply or manual apply confirmation in HCP Terraform `spry-dev` workspace is preferred for merges to `main`.
+  - **Security Trade-off**: Because SCP `p-bpbjw0fa` blocks OIDC provider creation, static IAM credentials (`spry-dev`) are stored in HCP Terraform. Unlike ephemeral OIDC tokens, static credentials must be manually rotated and managed.
+  - **State Visibility**: Sensitive variables (`google_client_secret`, `database_url`) remain visible in plaintext to anyone with read access to the raw `.tfstate` in HCP Terraform.
+- **TODO(me)**: Coordinate with AWS Organization admin to provision `app.terraform.io` OIDC provider centrally if keyless dynamic credentials are to be restored.

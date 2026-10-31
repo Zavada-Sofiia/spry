@@ -23,7 +23,7 @@ This runbook guides the human operator through the zero-downtime, zero-destructi
      - `TFC_AWS_RUN_ROLE_ARN` = `arn:aws:iam::545769669518:role/spry-tfc-role`
    - **Terraform Variables** (Category: `terraform`):
      - `google_client_secret` = `<your-google-oauth-client-secret>` (Sensitive: `true`)
-     - `database_url` = `postgresql://postgres@database-1.cluster-c7oceugkgaxi.eu-north-1.rds.amazonaws.com:5432/postgres` (Sensitive: `true`)
+     - `database_url` = `<your-aurora-postgresql-cluster-url>` (Sensitive: `true`)
 
 ---
 
