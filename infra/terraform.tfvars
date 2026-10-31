@@ -13,9 +13,9 @@ private_route_table_ids  = ["rtb-0a2a44e48d6ac2f03"]
 lambda_security_group_id = "sg-07172fe5ea15a237c"
 sender_email             = "zavada.sofia@gmail.com"
 recipient_emails         = "zavada.sofia@gmail.com"
-builder_image_uri        = "545769669518.dkr.ecr.eu-north-1.amazonaws.com/spry-backend:latest"
+builder_image_uri        = "545769669518.dkr.ecr.eu-north-1.amazonaws.com/spry-backend@sha256:1cd862350cb7fa490c91f73706f76fe80e7623b17d7b2abc436fd3e7bd314f19"
 
 # AI
 parser_image_uri = "545769669518.dkr.ecr.eu-north-1.amazonaws.com/spry-backend:latest"
 parser_model     = "anthropic.claude-opus-5-5"
-mock_ai          = "false"
+mock_ai          = "true"
