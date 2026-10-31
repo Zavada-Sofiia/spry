@@ -103,5 +103,5 @@ variable "parser_model" {
 variable "mock_ai" {
   description = "Whether agenda parser Lambda runs in mock mode ('true' or 'false')"
   type        = string
-  default     = "false"
+  default     = "true"
 }

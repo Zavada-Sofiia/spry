@@ -60,6 +60,7 @@ resource "aws_vpc_endpoint" "s3" {
 resource "aws_sqs_queue" "dlq" {
   name                      = "${var.project_name}-report-requests-dlq"
   message_retention_seconds = 1209600 # 14 days
+  max_message_size          = 1048576
 
   tags = {
     Project = var.project_name
@@ -69,6 +70,7 @@ resource "aws_sqs_queue" "dlq" {
 resource "aws_sqs_queue" "requests" {
   name                       = "${var.project_name}-report-requests"
   visibility_timeout_seconds = 360 # >= 6 x builder timeout (60 s)
+  max_message_size           = 1048576
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.dlq.arn
@@ -205,7 +207,7 @@ resource "aws_scheduler_schedule" "weekly" {
   target {
     arn      = aws_sqs_queue.requests.arn
     role_arn = aws_iam_role.scheduler.arn
-    input    = jsonencode({ week = null, source = "schedule" })
+    input    = "{\"week\": null, \"source\": \"schedule\"}"
   }
 }
 
