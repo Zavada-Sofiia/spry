@@ -33,6 +33,8 @@ Resources:
   # ---------- Reports bucket ----------
   ReportsBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     DependsOn: MailerInvokePermission
     Properties:
       BucketName: !Sub ${ProjectName}-reports-${AWS::AccountId}   # explicit on purpose
@@ -60,6 +62,8 @@ Resources:
 
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcEndpointType: Gateway
       VpcId: !Ref VpcId
@@ -69,6 +73,8 @@ Resources:
   # ---------- SQS queue and DLQ ----------
   ReportRequestsDLQ:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       QueueName: !Sub ${ProjectName}-report-requests-dlq
       MessageRetentionPeriod: 1209600          # 14 days
@@ -76,6 +82,8 @@ Resources:
 
   ReportRequestsQueue:
     Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       QueueName: !Sub ${ProjectName}-report-requests
       VisibilityTimeout: 360                   # >= 6 x builder timeout (60 s)
@@ -86,6 +94,8 @@ Resources:
 
   BuilderQueueMapping:
     Type: AWS::Lambda::EventSourceMapping
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       EventSourceArn: !GetAtt ReportRequestsQueue.Arn
       FunctionName: !Ref BuilderFunction
@@ -94,6 +104,8 @@ Resources:
   # ---------- Report builder Lambda ----------
   BuilderRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -118,6 +130,8 @@ Resources:
 
   BuilderFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${ProjectName}-report-builder
       PackageType: Image
@@ -135,6 +149,8 @@ Resources:
 
   SchedulerRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -151,6 +167,8 @@ Resources:
 
   WeeklySchedule:
     Type: AWS::Scheduler::Schedule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Name: !Sub ${ProjectName}-weekly-report
       ScheduleExpression: cron(0 7 ? * MON *)
@@ -164,6 +182,8 @@ Resources:
   # ---------- Report mailer Lambda ----------
   MailerRole:
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -187,6 +207,8 @@ Resources:
 
   MailerFunction:
     Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Sub ${ProjectName}-report-mailer
       Runtime: python3.12
@@ -229,6 +251,8 @@ Resources:
 
   MailerInvokePermission:
     Type: AWS::Lambda::Permission
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       FunctionName: !Ref MailerFunction
       Action: lambda:InvokeFunction
@@ -239,6 +263,8 @@ Resources:
   # ---------- SES email identity ----------
   EmailIdentity:
     Type: AWS::SES::EmailIdentity
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       EmailIdentity: !Ref SenderEmail
 

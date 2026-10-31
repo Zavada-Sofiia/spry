@@ -9,9 +9,8 @@ ECS_SERVICE = spry-backend-service
 COMMIT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
 
 PROJECT_NAME ?= spry
-REPORTS_STACK ?= $(PROJECT_NAME)-reports
 
-.PHONY: deploy-frontend deploy-backend auth-env report-now llm-hello parse deploy-ai
+.PHONY: deploy-frontend deploy-backend auth-env report-now llm-hello parse infra-plan
 
 deploy-frontend: auth-env
 	@echo "==> Building frontend bundle..."
@@ -33,19 +32,22 @@ deploy-backend:
 	aws ecs update-service --region $(AWS_REGION) --cluster $(ECS_CLUSTER) --service $(ECS_SERVICE) --force-new-deployment
 
 auth-env:
-	@POOL=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text); \
-	CLIENT=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='ClientId'].OutputValue" --output text); \
-	DOMAIN=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name spry-auth --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" --output text); \
-	PARSER=$$(aws cloudformation describe-stacks --region eu-north-1 --stack-name $(PROJECT_NAME)-ai --query "Stacks[0].Outputs[?OutputKey=='ParserFunctionUrl'].OutputValue" --output text 2>/dev/null || echo ""); \
+	@POOL=$$(terraform -chdir=infra output -raw UserPoolId); \
+	CLIENT=$$(terraform -chdir=infra output -raw ClientId); \
+	DOMAIN=$$(terraform -chdir=infra output -raw CognitoDomain); \
+	PARSER=$$(terraform -chdir=infra output -raw ParserFunctionUrl 2>/dev/null || echo ""); \
 	printf "VITE_COGNITO_AUTHORITY=https://cognito-idp.eu-north-1.amazonaws.com/$$POOL\nVITE_COGNITO_CLIENT_ID=$$CLIENT\nVITE_COGNITO_DOMAIN=$$DOMAIN\nVITE_PARSER_FUNCTION_URL=$$PARSER\n" > frontend/.env.production
 
 report-now:
 	@test -n "$(WEEK)" || (echo "usage: make report-now WEEK=2026-W39" && exit 1)
 	aws sqs send-message \
 	  --region $(AWS_REGION) \
-	  --queue-url $$(aws cloudformation describe-stacks --region $(AWS_REGION) --stack-name $(REPORTS_STACK) \
-	      --query "Stacks[0].Outputs[?OutputKey=='ReportRequestsQueueUrl'].OutputValue" --output text) \
+	  --queue-url $$(terraform -chdir=infra output -raw ReportRequestsQueueUrl) \
 	  --message-body '{"week":"$(WEEK)","source":"manual"}'
+
+infra-plan:
+	@echo "==> Running terraform plan in infra/..."
+	terraform -chdir=infra plan
 
 llm-hello:
 	PYTHONPATH=backend python3 -c '\
@@ -74,19 +76,7 @@ print(agenda.model_dump_json(indent=2)); \
 print(f"usage: {usage}, cost: $${cost_usd(settings.PARSER_MODEL, usage):.6f}"); \
 ' "$(TEXT)"
 
-MOCK_AI ?= false
 
-deploy-ai:
-	@echo "==> Deploying Spry AI Stack..."
-	aws cloudformation deploy \
-	  --region $(AWS_REGION) \
-	  --stack-name $(PROJECT_NAME)-ai \
-	  --template-file infra/ai.yml \
-	  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-	  --parameter-overrides \
-	      ProjectName=$(PROJECT_NAME) \
-	      ParserImageUri=$(ECR_REGISTRY)/$(ECR_REPOSITORY):$(COMMIT_SHA) \
-	      MockAi=$(MOCK_AI)
 
 
 
