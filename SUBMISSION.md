@@ -1,3 +1,18 @@
+# Lab 9: One project, two clouds. Submission
+
+| # | Deliverable | Where |
+|---|---|---|
+| 1 | Commit / PR adding `gcp/` Terraform + ADR | PR: _TODO after merge_. Config: [`gcp/`](gcp/) (+ one-time [`gcp/bootstrap/`](gcp/bootstrap/)). ADR: [`docs/adr/0009-google-cloud.md`](docs/adr/0009-google-cloud.md) |
+| 2 | URL of Spry on Google Cloud | Frontend: `https://spry-sofiia-2026.web.app`. API read from DB: `https://spry-sofiia-2026.web.app/api/meetings` (_verify with `make gcp-smoke`_) |
+| 3 | Cost table + free-tier assumptions | [`docs/lab9-answers.md` → Part 3](docs/lab9-answers.md#part-3-sprys-minimal-setup-on-both-clouds-and-what-it-costs) |
+| 4 | Screenshots: BigQuery query, Looker Studio chart, Document AI / Vision OCR | _TODO_. Steps and query: [`docs/lab9-answers.md` → Part 4](docs/lab9-answers.md#part-4-what-else-google-cloud-is-good-at) |
+
+Data loading: **migrations on the empty database** (`alembic upgrade head` on container start) + `make gcp-seed`, not `pg_dump`. See ADR 0009.
+
+Clean-up: `terraform destroy` in `spry-gcp` after grading. Stopping is not enough: the idle IPv4 still bills.
+
+---
+
 # Lab 7: Supplementary Infrastructure Migration — Submission Evidence
 
 This document contains the required three submission deliverables for the CloudFormation to Terraform migration lab.

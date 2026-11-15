@@ -16,6 +16,8 @@ answers.md
 *.tfplan
 tfplan
 crash.log
+frontend/.firebase/
+firebase-debug.log
 task.md
 task_fix.md
 *.png
