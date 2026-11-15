@@ -76,8 +76,54 @@ print(agenda.model_dump_json(indent=2)); \
 print(f"usage: {usage}, cost: $${cost_usd(settings.PARSER_MODEL, usage):.6f}"); \
 ' "$(TEXT)"
 
+# ======================= Google Cloud (Lab 9) =======================
+GCP_PROJECT ?= spry-sofiia-2026
+GCP_REGION  ?= us-central1
+GCP_IMAGE    = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/spry/backend
+GCP_DB       = spry-db
 
+.PHONY: gcp-bootstrap gcp-plan gcp-push-api gcp-deploy-frontend gcp-db-stop gcp-db-start gcp-db-status gcp-seed gcp-smoke
 
+# One-time, from a laptop signed in with `gcloud auth application-default login`.
+gcp-bootstrap:
+	terraform -chdir=gcp/bootstrap init
+	terraform -chdir=gcp/bootstrap apply
 
+gcp-plan:
+	terraform -chdir=gcp plan
 
+# Build for Cloud Run (amd64), push, and print the digest to pin in gcp/terraform.tfvars.
+gcp-push-api:
+	gcloud auth configure-docker $(GCP_REGION)-docker.pkg.dev --quiet
+	docker build --platform linux/amd64 -t $(GCP_IMAGE):$(COMMIT_SHA) ./backend
+	docker push $(GCP_IMAGE):$(COMMIT_SHA)
+	@echo "api_image = \"$$(docker inspect --format='{{index .RepoDigests 0}}' $(GCP_IMAGE):$(COMMIT_SHA))\""
 
+# Same bundle as on AWS (Cognito + parser stay there); /api/** is rewritten to Cloud Run.
+gcp-deploy-frontend:
+	cd frontend && npm ci && npm run build
+	cd frontend && npx -y firebase-tools@15 deploy --only hosting --project $(GCP_PROJECT)
+
+# Cloud SQL does not pause. Stop it when nobody uses it (storage and the idle IPv4 still bill).
+gcp-db-stop:
+	gcloud sql instances patch $(GCP_DB) --project $(GCP_PROJECT) --activation-policy=NEVER --quiet
+
+gcp-db-start:
+	gcloud sql instances patch $(GCP_DB) --project $(GCP_PROJECT) --activation-policy=ALWAYS --quiet
+
+gcp-db-status:
+	@gcloud sql instances describe $(GCP_DB) --project $(GCP_PROJECT) --format='value(state,settings.activationPolicy)'
+
+# Demo data through the public API (the same POST the frontend form makes).
+gcp-seed:
+	@URL=$$(gcloud run services describe spry-api --project $(GCP_PROJECT) --region $(GCP_REGION) --format='value(status.url)'); \
+	for body in \
+	  '{"title":"Sprint Planning","starts_at":"2026-11-16T09:00:00Z","ends_at":"2026-11-16T10:00:00Z","attendee_count":8}' \
+	  '{"title":"Design Review","starts_at":"2026-11-18T13:00:00Z","ends_at":"2026-11-18T14:30:00Z","attendee_count":4}' \
+	  '{"title":"Team Retrospective","starts_at":"2026-11-20T15:00:00Z","ends_at":"2026-11-20T16:00:00Z","attendee_count":10}'; do \
+	  curl -sf -X POST "$$URL/api/meetings" -H 'Content-Type: application/json' -d "$$body" && echo; \
+	done
+
+gcp-smoke:
+	@echo "== Firebase Hosting (frontend)"; curl -s -o /dev/null -w "%{http_code}\n" https://$(GCP_PROJECT).web.app/
+	@echo "== /api/meetings through Firebase -> Cloud Run -> Cloud SQL"; curl -s https://$(GCP_PROJECT).web.app/api/meetings; echo

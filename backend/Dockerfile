@@ -17,4 +17,6 @@ RUN chmod +x /app/entrypoint.sh
 EXPOSE 8000
 
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Cloud Run sets PORT (8080); ECS and docker compose leave it unset (8000).
+# The AWS Lambdas override CMD with their handler, so they are unaffected.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
