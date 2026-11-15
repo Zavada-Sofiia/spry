@@ -2,8 +2,8 @@
 
 | # | Deliverable | Where |
 |---|---|---|
-| 1 | Commit / PR adding `gcp/` Terraform + ADR | PR: _TODO after merge_. Config: [`gcp/`](gcp/) (+ one-time [`gcp/bootstrap/`](gcp/bootstrap/)). ADR: [`docs/adr/0009-google-cloud.md`](docs/adr/0009-google-cloud.md) |
-| 2 | URL of Spry on Google Cloud | Frontend: `https://spry-sofiia-2026.web.app`. API read from DB: `https://spry-sofiia-2026.web.app/api/meetings` (_verify with `make gcp-smoke`_) |
+| 1 | Commit / PR adding `gcp/` Terraform + ADR | PR: [#5](https://github.com/Zavada-Sofiia/spry/pull/5) (merge commit [`6315f64`](https://github.com/Zavada-Sofiia/spry/commit/6315f64)); image pin: [#6](https://github.com/Zavada-Sofiia/spry/pull/6). Config: [`gcp/`](gcp/) (+ one-time [`gcp/bootstrap/`](gcp/bootstrap/)). ADR: [`docs/adr/0009-google-cloud.md`](docs/adr/0009-google-cloud.md) |
+| 2 | URL of Spry on Google Cloud | Frontend: https://spry-sofiia-2026.web.app. API read from DB: https://spry-sofiia-2026.web.app/api/meetings (Firebase → Cloud Run `spry-api` → Cloud SQL `spry-db`; verified 2026-11-15 with `make gcp-smoke`: 200 + 3 meetings) |
 | 3 | Cost table + free-tier assumptions | [`docs/lab9-answers.md` → Part 3](docs/lab9-answers.md#part-3-sprys-minimal-setup-on-both-clouds-and-what-it-costs) |
 | 4 | Screenshots: BigQuery query, Looker Studio chart, Document AI / Vision OCR | _TODO_. Steps and query: [`docs/lab9-answers.md` → Part 4](docs/lab9-answers.md#part-4-what-else-google-cloud-is-good-at) |
 
